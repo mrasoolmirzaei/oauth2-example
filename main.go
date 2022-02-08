@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+	"github.com/mrasoolmirzaei/oauth2-example/handlers"
 	"log"
-	"github.com/douglasmakey/oauth2-example/handlers"
+	"net/http"
 )
 
 func main() {

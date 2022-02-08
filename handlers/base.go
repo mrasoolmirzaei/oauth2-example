@@ -11,7 +11,7 @@ func New() http.Handler {
 
 	// OauthGoogle
 	mux.HandleFunc("/auth/google/login", oauthGoogleLogin)
-	mux.HandleFunc("/auth/google/callback", oauthGoogleCallback)
+	mux.HandleFunc("/callback", oauthGoogleCallback)
 
 	return mux
 }
