@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
 	"io/ioutil"
@@ -14,13 +16,8 @@ import (
 
 // Scopes: OAuth 2.0 scopes provide a way to limit the amount of access that is granted to an access token.
 var googleOauthConfig = &oauth2.Config{
-	//RedirectURL:  "http://127.0.0.1:8000/callback",
 	RedirectURL: "http://127.0.0.1:8000/oauth/corepass/callback",
-	//ClientID:     os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-	//ClientID: "arman_local",
 	ClientID: "toktokey_local",
-	//ClientSecret: os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
-	//ClientSecret: "OAIBCuloasbco9as8c",
 	ClientSecret: "OAISunclao9s8cp0nas9cpas",
 	Scopes:       []string{"openid", "offline"},
 	Endpoint:     oauth2.Endpoint{
@@ -30,10 +27,10 @@ var googleOauthConfig = &oauth2.Config{
 	},
 }
 
-
 var state string
 
 const oauthGoogleUrlAPI = "https://hydra-stage.corepass.net/userinfo"
+//const oauthGoogleUrlAPI = "https://hydra-stage.corepass.net/oauth2/token"
 
 func oauthGoogleLogin(w http.ResponseWriter, r *http.Request) {
 
@@ -68,10 +65,42 @@ func oauthGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var cui CorepassUserInfoResponse
+	if err := json.Unmarshal(data, &cui); err != nil {
+		log.Printf("%v",err)
+	}
+
 	// GetOrCreate User in your db.
 	// Redirect or response with a token.
 	// More code .....
-	fmt.Fprintf(w, "UserInfo: %s\n", data)
+	fmt.Fprintf(w, "UserInfo Raw: %s\n", data)
+	fmt.Fprintf(w, "UserInfo: %s\n", cui)
+
+//	kycRequest := KYCUserInfoRequest{
+//		User: "0x2794c4b2ca6a8e595a62558fccf30238b75cb560",
+//		Names: []string{"IDCardFullName", "IDCardDob"},
+//		Callback: "http://127.0.0.1:8000/kyc/corepass/callback",
+//}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"user":"0x35d3E98f7eb4dc8DD9dbD4cEbd8C275aAf913Ae9",
+		"names":[]string{"IDCardFullName", "IDCardDob"},
+		"callback":"http://127.0.0.1:8000/oauth/corepass/callback",
+	})
+
+	req, err := http.NewRequest("POST", "https://hydra-stage.corepass.net/kyc/isverified", bytes.NewBuffer(body))
+
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+
+	var kycResponse KYCIsVerifiedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&kycResponse); err != nil {
+		log.Printf("%v",err)
+	}
+
+	defer resp.Body.Close()
+
+	log.Printf("kycResponse: %v",kycResponse)
 }
 
 func generateStateOauthCookie(w http.ResponseWriter) string {
@@ -114,4 +143,27 @@ func getUserDataFromGoogle(code string) ([]byte, error) {
 		return nil, fmt.Errorf("failed read response: %s", err.Error())
 	}
 	return contents, nil
+}
+
+type CorepassUserInfoResponse struct {
+	Sub string `json:"sub"`
+}
+
+
+type KYCUserInfoRequest struct {
+	User string `json:"user"`
+	Names []string `json:"names"`
+	Callback string `json:"callback"`
+}
+
+type KYCUserInfoResponse struct {
+	User string `json:"user"`
+	Infos struct{
+		IDCardFullName string `json:"IDCardFullName"`
+	}`json:"infos"`
+}
+
+type KYCIsVerifiedResponse struct {
+	Verifieds []string `json:"verifieds"`
+	Unverifieds []string `json:"unverifieds"`
 }
